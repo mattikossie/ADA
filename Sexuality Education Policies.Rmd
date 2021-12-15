@@ -1,0 +1,149 @@
+---
+title: "Sexuality Health Education Policy"
+author: "Maëlle Attikossie"
+date: "12/15/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Packages
+```{r }
+#install.packages("stargazer")  #For model comparison
+#install.packages("sandwich") #For robust SE estimator
+#install.packages("MASS") #For negative binomial
+#install.packages("lmtest") #For model comparison
+library(stargazer) 
+library(sandwich)
+library(MASS)
+library(lmtest)
+library(haven)
+library(readr)
+```
+
+# Data Steps
+
+```{r}
+
+CSEdata <- read_csv("/Users/maelleattikossie/Downloads/ADAdata.csv")
+
+CSEdata$Curriculum <- factor(CSEdata$Curriculum)
+summary(CSEdata)
+
+hist(CSEdata$Pregnancies)
+hist(CSEdata$Abortions)
+hist(CSEdata$Births)
+
+```
+
+# A function for the GLM 
+
+```{r}
+glm.RR <- function(GLM.RESULT, digits = 2) {
+
+    if (GLM.RESULT$family$family == "binomial") {
+        LABEL <- "OR"
+    } else if (GLM.RESULT$family$family == "poisson") {
+        LABEL <- "RR"
+    } else {
+        stop("Not logistic or Poisson model")
+    }
+
+    COEF      <- stats::coef(GLM.RESULT)
+    CONFINT   <- stats::confint(GLM.RESULT)
+    TABLE     <- cbind(coef=COEF, CONFINT)
+    TABLE.EXP <- round(exp(TABLE), digits)
+
+    colnames(TABLE.EXP)[1] <- LABEL
+
+    TABLE.EXP}
+
+```
+
+# Running the models:
+## Poisson regression and negative binomial
+### CSE curriculum and teenage pregnancies 
+```{r}
+PPoissonmodel <- 
+  glm(Pregnancies ~ Curriculum, offset = (log(Population)), family = poisson(link = "log"), data = CSEdata)
+  summary(PPoissonmodel)
+  
+glm.RR(PPoissonmodel, 3)
+
+#Negative Binomial Regression
+
+PregnanciesNB <- 
+  glm.nb(Pregnancies ~ Curriculum + offset (log(Population)), data = CSEdata)
+  summary(PregnanciesNB)
+  
+#Testing for goodnest of fit
+  lrtest(PPoissonmodel, PregnanciesNB) #Significant result
+  
+```
+
+### CSE curriculum and teenage abortions 
+```{r}
+APoissonmodel <- 
+  glm(Abortions ~ Curriculum, offset = (log(Population)), family = poisson(link = "log"), data = CSEdata)
+  summary(APoissonmodel)
+  
+glm.RR(APoissonmodel, 3)
+
+#Negative Binomial Regression
+
+AbortionsNB <- 
+  glm.nb(Abortions ~ Curriculum + offset (log(Population)), data = CSEdata)
+  summary(AbortionsNB)
+  
+#Testing for goodnest of fit
+  lrtest(APoissonmodel, AbortionsNB) #Significant result
+```
+
+### CSE curriculum and teenage births 
+```{r}
+BPoissonmodel <- 
+  glm(CSEdata$Births ~ Curriculum, offset = (log(Population)), family = poisson(link = "log"), data = CSEdata)
+  summary(BPoissonmodel)
+  
+glm.RR(BPoissonmodel, 3)
+
+#Negative Binomial Regression
+
+BirthsNB <- 
+  glm.nb(CSEdata$Births ~ Curriculum + offset (log(Population)), data = CSEdata)
+  summary(BirthsNB)
+
+#Testing for goodnest of fit
+  lrtest(BPoissonmodel, BirthsNB) #Significant result
+```
+
+# Incidence Ratios for Reproductive Health Outcomes
+```{r}
+#Teenage Pregnancies 
+IncidencePregnancies <- coef(PregnanciesNB)
+exp(IncidencePregnancies) # 0.87377355 
+
+CIpregnancies <- confint(PregnanciesNB)
+exp(CIpregnancies) # 0.74606868 1.02827584
+
+
+
+#Teenage Abortions 
+IncidenceAbortions <- coef(AbortionsNB)
+exp(IncidenceAbortions) # 1.31121480 
+
+CIabortions <- confint(AbortionsNB)
+exp(CIabortions) # 1.000426324 1.74342951
+
+
+#Teenage Births 
+IncidenceBirths <- coef(BirthsNB)
+exp(IncidenceBirths) # 0.74918919 
+
+CIbirths <- confint(BirthsNB)
+exp(CIbirths) # 0.60956891 0.92844343
+
+```
+
